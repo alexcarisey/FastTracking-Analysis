@@ -90,7 +90,7 @@ for track = 1:length(all_the_tracks_all_values)
     all_the_tracks_all_values{track}.RoG_ComponentX = zeros(nrow, 1);
     all_the_tracks_all_values{track}.RoG_ComponentY = zeros(nrow, 1);
     all_the_tracks_all_values{track}.RoG_ComponentZ = zeros(nrow, 1);
-    all_the_tracks_all_values{track}.RadiusOfGyration = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.RadiusOfGyration2 = zeros(nrow, 1);
     indicator_progress = indicator_progress + (100/length(all_the_tracks_all_values));
     textprogressbar(indicator_progress);
 end
@@ -129,12 +129,12 @@ end
 textprogressbar(' Done');
 clear indicator_progress track position nrow
 
-disp('Computing radius of gyration and average speed...');
+disp('Computing radius of gyration^2 and average speed...');
 textprogressbar('Progress:   ');
 indicator_progress = 0;
 for track = 1:length(all_the_tracks_all_values)
     all_the_tracks_all_values{track}.AverageSpeed(:) = mean(all_the_tracks_all_values{track}.InstantVelocity(:));
-    all_the_tracks_all_values{track}.RadiusOfGyration(:) = ( sum(all_the_tracks_all_values{track}.RoG_ComponentX(:)) + sum(all_the_tracks_all_values{track}.RoG_ComponentY(:)) + sum(all_the_tracks_all_values{track}.RoG_ComponentZ(:))) / height(all_the_tracks_all_values{track});
+    all_the_tracks_all_values{track}.RadiusOfGyration2(:) = ( sum(all_the_tracks_all_values{track}.RoG_ComponentX(:)) + sum(all_the_tracks_all_values{track}.RoG_ComponentY(:)) + sum(all_the_tracks_all_values{track}.RoG_ComponentZ(:))) / height(all_the_tracks_all_values{track});
     indicator_progress = indicator_progress + (100/length(all_the_tracks_all_values));
     textprogressbar(indicator_progress);
 end
@@ -162,10 +162,10 @@ instant_velocities = ma.getVelocities; % Generate and return the instantaneous v
 % Data preparation
 
 average_speeds = zeros(length(all_the_tracks_all_values),1);
-radius_of_gyration = zeros(length(all_the_tracks_all_values),1);
+radius_of_gyration2 = zeros(length(all_the_tracks_all_values),1);
 for track = 1:length(all_the_tracks_all_values)
     average_speeds(track,1) = all_the_tracks_all_values{track}.AverageSpeed(1);
-    radius_of_gyration(track,1) = all_the_tracks_all_values{track}.RadiusOfGyration(1);
+    radius_of_gyration2(track,1) = all_the_tracks_all_values{track}.RadiusOfGyration2(1);
 end
 
 % Plotting itself
@@ -178,6 +178,7 @@ for track = 1:length(all_the_tracks_all_values)
     plot(all_the_tracks_all_values{track}.PositionX,all_the_tracks_all_values{track}.PositionY)
 end 
 hold off
+box on
 
 subplot(2,4,3);
 hold on
@@ -187,8 +188,8 @@ hold off
 
 subplot(2,4,4);
 hold on
-plotSpread(radius_of_gyration);
-boxplot(radius_of_gyration);
+plotSpread(radius_of_gyration2);
+boxplot(radius_of_gyration2);
 hold off
 
 subplot(2,4,[5 6]);
@@ -197,7 +198,9 @@ histogram(average_speeds,nbins)
 
 subplot(2,4,[7 8]);
 nbins = 100;
-histogram(radius_of_gyration,nbins)
+histogram(radius_of_gyration2,nbins)
+
+%clear nbins track average_speeds radius_of_gyration2
 
 %% Plotting part 2
 
