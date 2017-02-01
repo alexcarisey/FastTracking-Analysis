@@ -93,6 +93,7 @@ for track = 1:length(all_the_tracks_all_values)
     indicator_progress = indicator_progress + (100/length(all_the_tracks_all_values));
     textprogressbar(indicator_progress);
 end
+indicator_progress = 100;
 textprogressbar(' Done');
 
 clear indicator_progress track nrow
@@ -117,6 +118,11 @@ end
 indicator_progress = 100;
 textprogressbar(' Done');
 clear indicator_progress track position nrow
+
+%% Plotting part 1
+
+
+
 
 %% @msdanalyzer 
 
