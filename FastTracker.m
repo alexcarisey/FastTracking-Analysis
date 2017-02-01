@@ -71,13 +71,10 @@ for jj = 1:height(TUN)
     indicator_progress = indicator_progress + (100/height(TUN));
     textprogressbar(indicator_progress);
 end
-indicator_progress = 100;
 textprogressbar(' Done');
 clear jj indicator_progress pathname unique_idx TUN*
 
 %% Calculating additional parameters using only the X,Y,Z positions and time interval
-
-% General pre-allocation for the additional columns
 
 disp('Pre-allocation');
 textprogressbar('Progress:   ');
@@ -90,17 +87,17 @@ for track = 1:length(all_the_tracks_all_values)
     all_the_tracks_all_values{track}.InstantVelocity = zeros(nrow, 1);
     all_the_tracks_all_values{track}.CumulativeSpeed = zeros(nrow, 1);
     all_the_tracks_all_values{track}.AverageSpeed = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.RoG_ComponentX = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.RoG_ComponentY = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.RoG_ComponentZ = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.RadiusOfGyration = zeros(nrow, 1);
     indicator_progress = indicator_progress + (100/length(all_the_tracks_all_values));
     textprogressbar(indicator_progress);
 end
-indicator_progress = 100;
 textprogressbar(' Done');
-
 clear indicator_progress track nrow
 
-% Populate the additional fields
-
-disp('Computing distances, displacement, speed and velocities...');
+disp('Computing distances, displacement and velocities...');
 textprogressbar('Progress:   ');
 indicator_progress = 0;
 for track = 1:length(all_the_tracks_all_values)
@@ -110,19 +107,39 @@ for track = 1:length(all_the_tracks_all_values)
         all_the_tracks_all_values{track}.Displacement(position) = sqrt((all_the_tracks_all_values{track}.PositionX(end)-all_the_tracks_all_values{track}.PositionX(1))^2 + (all_the_tracks_all_values{track}.PositionY(end)-all_the_tracks_all_values{track}.PositionY(1))^2 + (all_the_tracks_all_values{track}.PositionZ(end)-all_the_tracks_all_values{track}.PositionZ(1))^2);
         all_the_tracks_all_values{track}.InstantVelocity(position) = all_the_tracks_all_values{track}.PTPDistance(position) / frame_rate;
         all_the_tracks_all_values{track}.CumulativeSpeed(position) = all_the_tracks_all_values{track}.CumulativeDistance(position) / (frame_rate * (position-1));
-        all_the_tracks_all_values{track}.AverageSpeed(:) = mean(all_the_tracks_all_values{track}.InstantVelocity(:));
     end
     indicator_progress = indicator_progress + (100/length(all_the_tracks_all_values));
     textprogressbar(indicator_progress);
 end
-indicator_progress = 100;
 textprogressbar(' Done');
 clear indicator_progress track position nrow
 
-%% Plotting part 1
+disp('Computing components for radius of gyration...');
+textprogressbar('Progress:   ');
+indicator_progress = 0;
+for track = 1:length(all_the_tracks_all_values)
+    for position = 1:(height(all_the_tracks_all_values{track}))
+        all_the_tracks_all_values{track}.RoG_ComponentX(position) = (all_the_tracks_all_values{track}.PositionX(position) - mean(all_the_tracks_all_values{track}.PositionX(:)))^2;
+        all_the_tracks_all_values{track}.RoG_ComponentY(position) = (all_the_tracks_all_values{track}.PositionY(position) - mean(all_the_tracks_all_values{track}.PositionY(:)))^2;
+        all_the_tracks_all_values{track}.RoG_ComponentZ(position) = (all_the_tracks_all_values{track}.PositionZ(position) - mean(all_the_tracks_all_values{track}.PositionZ(:)))^2;
+    end
+    indicator_progress = indicator_progress + (100/length(all_the_tracks_all_values));
+    textprogressbar(indicator_progress);
+end
+textprogressbar(' Done');
+clear indicator_progress track position nrow
 
-
-
+disp('Computing radius of gyration and average speed...');
+textprogressbar('Progress:   ');
+indicator_progress = 0;
+for track = 1:length(all_the_tracks_all_values)
+    all_the_tracks_all_values{track}.AverageSpeed(:) = mean(all_the_tracks_all_values{track}.InstantVelocity(:));
+    all_the_tracks_all_values{track}.RadiusOfGyration(:) = ( sum(all_the_tracks_all_values{track}.RoG_ComponentX(:)) + sum(all_the_tracks_all_values{track}.RoG_ComponentY(:)) + sum(all_the_tracks_all_values{track}.RoG_ComponentZ(:))) / height(all_the_tracks_all_values{track});
+    indicator_progress = indicator_progress + (100/length(all_the_tracks_all_values));
+    textprogressbar(indicator_progress);
+end
+textprogressbar(' Done');
+clear indicator_progress track position nrow
 
 %% @msdanalyzer 
 
@@ -134,24 +151,66 @@ ma = ma.addAll(all_the_tracks_time_position); % Add specified trajectories to ms
 % Compute
 
 ma = ma.computeMSD; % Compute the mean-squared-displacement for this object.
-ma = ma.computeVCorr; % Compute velocity autocorrelation.
+%ma = ma.computeVCorr; % Compute velocity autocorrelation.
 
-meanmsd = ma.getMeanMSD; % Compute the weighted mean of all MSD curves. 
-meanvcorr = ma.getMeanVCorr; % Compute the weighted mean of velocity autocorrelation. 
+%meanmsd = ma.getMeanMSD; % Compute the weighted mean of all MSD curves. 
+%meanvcorr = ma.getMeanVCorr; % Compute the weighted mean of velocity autocorrelation. 
 instant_velocities = ma.getVelocities; % Generate and return the instantaneous velocities. 
+
+%% Plotting part 1
+
+% Data preparation
+
+average_speeds = zeros(length(all_the_tracks_all_values),1);
+radius_of_gyration = zeros(length(all_the_tracks_all_values),1);
+for track = 1:length(all_the_tracks_all_values)
+    average_speeds(track,1) = all_the_tracks_all_values{track}.AverageSpeed(1);
+    radius_of_gyration(track,1) = all_the_tracks_all_values{track}.RadiusOfGyration(1);
+end
+
+% Plotting itself
+
+figure;
+
+subplot(2,4,[1 2]);
+hold on
+for track = 1:length(all_the_tracks_all_values)
+    plot(all_the_tracks_all_values{track}.PositionX,all_the_tracks_all_values{track}.PositionY)
+end 
+hold off
+
+subplot(2,4,3);
+hold on
+plotSpread(average_speeds);
+boxplot(average_speeds);
+hold off
+
+subplot(2,4,4);
+hold on
+plotSpread(radius_of_gyration);
+boxplot(radius_of_gyration);
+hold off
+
+subplot(2,4,[5 6]);
+nbins = 100;
+histogram(average_speeds,nbins)
+
+subplot(2,4,[7 8]);
+nbins = 100;
+histogram(radius_of_gyration,nbins)
+
+%% Plotting part 2
 
 % Plot trajectories
 
-figure
+figure;
 [hps1, ha1] = ma.plotTracks; % Plot the tracks stored in this object.
 ma.labelPlotTracks(ha1); % A convenience method to set the axes labels.
 
 % Plotting and curve fitting
 
-figure
 [hps2, ha2] =  ma.plotMSD; % Plot the mean square displacement curves. 
 ma.labelPlotMSD(ha2); % A convenience method to set the axes labels. 
-
 ma = ma.fitMSD( 0.5 ); % Fit all MSD curves by a linear function.
 
 % Plot Mean MSD
@@ -162,6 +221,8 @@ hmsd =  ma.plotMeanMSD(gca, true); % Plot the weighted mean of the MSD curves.
 plot(fo)
 legend off
 ma.labelPlotMSD
+
+%%
 
 ma = ma.fitLogLogMSD(0.5); % Fit the log-log MSD to determine behavior.
 ma.loglogfit
