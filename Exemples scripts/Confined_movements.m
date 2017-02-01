@@ -2,8 +2,6 @@
 
 clear all
 close all
-clc
-
 
 SPACE_UNITS = 'µm';
 TIME_UNITS = 's';

@@ -2,12 +2,11 @@
 
 close all
 clear all
-clc
 
 SPACE_UNITS = 'µm';
 TIME_UNITS = 's';
 SIZE = 2; % µm
-N_PARTICLES = 10;
+N_PARTICLES = 100;
 N_TIME_STEPS = 100;
 N_DIM = 2; % 2D
 D  = 1e-3; % µm^2/s

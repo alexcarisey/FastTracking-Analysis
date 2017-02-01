@@ -1,7 +1,7 @@
 %%Impact of tracking and localization error.
 
-close all
 clear all
+close all
 
 % Typical bad localization error. Large compared to typical displacement.
 BAD_XY_TYPICAL_OFFSET = 0.2; % µm

@@ -1,7 +1,7 @@
 %% Directed motion.
 
-close all
 clear all
+close all
 
 SPACE_UNITS = 'µm';
 TIME_UNITS = 's';

@@ -71,8 +71,52 @@ for jj = 1:height(TUN)
     indicator_progress = indicator_progress + (100/height(TUN));
     textprogressbar(indicator_progress);
 end
+indicator_progress = 100;
 textprogressbar(' Done');
 clear jj indicator_progress pathname unique_idx TUN*
+
+%% Calculating additional parameters using only the X,Y,Z positions and time interval
+
+% General pre-allocation for the additional columns
+
+disp('Pre-allocation');
+textprogressbar('Progress:   ');
+indicator_progress = 0;
+for track = 1:length(all_the_tracks_all_values)
+    nrow = size(all_the_tracks_all_values{track},1);
+    all_the_tracks_all_values{track}.PTPDistance = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.CumulativeDistance = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.Displacement = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.InstantVelocity = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.CumulativeSpeed = zeros(nrow, 1);
+    all_the_tracks_all_values{track}.AverageSpeed = zeros(nrow, 1);
+    indicator_progress = indicator_progress + (100/length(all_the_tracks_all_values));
+    textprogressbar(indicator_progress);
+end
+textprogressbar(' Done');
+
+clear indicator_progress track nrow
+
+% Populate the additional fields
+
+disp('Computing distances, displacement, speed and velocities...');
+textprogressbar('Progress:   ');
+indicator_progress = 0;
+for track = 1:length(all_the_tracks_all_values)
+    for position = 2:(height(all_the_tracks_all_values{track}))
+        all_the_tracks_all_values{track}.PTPDistance(position) = sqrt((all_the_tracks_all_values{track}.PositionX(position)-all_the_tracks_all_values{track}.PositionX(position-1))^2 + (all_the_tracks_all_values{track}.PositionY(position)-all_the_tracks_all_values{track}.PositionY(position-1))^2 + (all_the_tracks_all_values{track}.PositionZ(position)-all_the_tracks_all_values{track}.PositionZ(position-1))^2);
+        all_the_tracks_all_values{track}.CumulativeDistance(position) = all_the_tracks_all_values{track}.PTPDistance(position) + all_the_tracks_all_values{track}.CumulativeDistance(position-1);
+        all_the_tracks_all_values{track}.Displacement(position) = sqrt((all_the_tracks_all_values{track}.PositionX(end)-all_the_tracks_all_values{track}.PositionX(1))^2 + (all_the_tracks_all_values{track}.PositionY(end)-all_the_tracks_all_values{track}.PositionY(1))^2 + (all_the_tracks_all_values{track}.PositionZ(end)-all_the_tracks_all_values{track}.PositionZ(1))^2);
+        all_the_tracks_all_values{track}.InstantVelocity(position) = all_the_tracks_all_values{track}.PTPDistance(position) / frame_rate;
+        all_the_tracks_all_values{track}.CumulativeSpeed(position) = all_the_tracks_all_values{track}.CumulativeDistance(position) / (frame_rate * (position-1));
+        all_the_tracks_all_values{track}.AverageSpeed(:) = mean(all_the_tracks_all_values{track}.InstantVelocity(:));
+    end
+    indicator_progress = indicator_progress + (100/length(all_the_tracks_all_values));
+    textprogressbar(indicator_progress);
+end
+indicator_progress = 100;
+textprogressbar(' Done');
+clear indicator_progress track position nrow
 
 %% @msdanalyzer 
 
@@ -123,41 +167,3 @@ mean(ma.loglogfit.alpha)
 figure
 [hps4, ha4] =  ma.plotMeanVCorr; % Plot the weighted mean of the velocity autocorrelation curves. 
 ma.labelPlotVCorr(ha4); % A convenience method to set the axes labels.
-
-%% Velocity calculations
-
-velocities_array = cell(size(all_the_tracks_time_position));
-
-for track = 1:(length(all_the_tracks_time_position))
-    velocities_array{track}(1) = 0;
-    for position = 1:(length(all_the_tracks_time_position{track})-1)
-        velocities_array{track}(position+1,1) = sqrt((all_the_tracks_time_position{track}(position,2)-all_the_tracks_time_position{track}(position+1,2))^2 + (all_the_tracks_time_position{track}(position,3)-all_the_tracks_time_position{track}(position+1,3))^2 + (all_the_tracks_time_position{track}(position,4)-all_the_tracks_time_position{track}(position+1,4))^2);     
-    end
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
