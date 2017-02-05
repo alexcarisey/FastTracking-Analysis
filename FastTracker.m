@@ -1,3 +1,5 @@
+function FastTracker(filename,frame_rate,SPACE_UNITS,TIME_UNITS,minimum_track_length,every_n_frame,value_for_fitLogLogMSD,R2LIMIT,boundary_alpha_confined,boundary_alpha_directed)
+
 %% Custom script to calculate the speed, velocities, distances, displacement, RoG and MSD of tracked objects in Imaris
 
 % This script takes the Imaris export csv file where all the measurement
@@ -11,20 +13,20 @@
 %% Cleanup
 
 close all
-clearvars
+% clearvars
 home
 
 %% User variables
 
-frame_rate = 0.011; % Time interval betweent the frames in second
-SPACE_UNITS = 'µm'; % Space unit in which the measurements are imported
-TIME_UNITS = 's'; % Time unit in which the measurements are imported
-minimum_track_length = 100; % Threshold for including a track in the analysis (this is a frame number, not a duration!)
-every_n_frame = 1; % To use if you want to change the sampling rate
-value_for_fitLogLogMSD = 0.25; % This is the portion of the MSD curve used for the fit
-R2LIMIT = 0.75; % Threshold value for what is considered a good fit
-boundary_alpha_confined = 0.25; % Limit for alpha value between confined and diffusion
-boundary_alpha_directed = 1.5; % Limit for alpha value between diffusion and directed
+% frame_rate = 0.011; % Time interval betweent the frames in second
+% SPACE_UNITS = 'µm'; % Space unit in which the measurements are imported
+% TIME_UNITS = 's'; % Time unit in which the measurements are imported
+% minimum_track_length = 100; % Threshold for including a track in the analysis (this is a frame number, not a duration!)
+% every_n_frame = 1; % To use if you want to change the sampling rate
+% value_for_fitLogLogMSD = 0.25; % This is the portion of the MSD curve used for the fit
+% R2LIMIT = 0.75; % Threshold value for what is considered a good fit
+% boundary_alpha_confined = 0.25; % Limit for alpha value between confined and diffusion
+% boundary_alpha_directed = 1.5; % Limit for alpha value between diffusion and directed
 
 %% Loading and various parameters
 
@@ -36,11 +38,24 @@ boundary_alpha_directed = 1.5; % Limit for alpha value between diffusion and dir
 %POOL = parpool('local',8);
 tic
 
+disp(' ');
 disp('FastTracker - v1.0 - 2017-02-02');
+disp(' ');
+disp('Parameters for this analysis:');
+disp(['   Unit for space: ',SPACE_UNITS]);
+disp(['   Unit for time: ',TIME_UNITS]);
+disp(['   Frame rate: ',mat2str(frame_rate)]);
+disp(['   Sampling every nth frame: ',mat2str(every_n_frame)]);
+disp(['   Minimum track length: ',mat2str(minimum_track_length)]);
+disp(['   Maximum boundary for alpha value for confined: ',mat2str(boundary_alpha_confined)]);
+disp(['   Minimum boundary for alpha value for directed: ',mat2str(boundary_alpha_directed)]);
+disp(['   Portion of the MSD curve used for fitting: ',mat2str(value_for_fitLogLogMSD)]);
+disp(['   R2 limit for including the MSD fits in the analysis: ',mat2str(R2LIMIT)]);
 disp(' ');
 disp('Loading source csv file');
 
-[filename, path, ~] = uigetfile('.csv');
+% [filename, path, ~] = uigetfile('.csv');
+path = [pwd,'/'];
 delimiter = ',';
 startRow = 4; % note that sometimes, Imaris adds a padding line on the top!? So start at 5 if textscan encounters an error
 formatSpec = '%f%f%f%s%s%s%f%f%s%s%s%s%s%s%s%[^\n\r]'; % Important: 'PositionX','PositionY','PositionZ','Birth','Death' are imported as a number, rest as strings
@@ -223,7 +238,7 @@ ma = ma.fitLogLogMSD(value_for_fitLogLogMSD); % Fit the individual MSD and store
 
 disp('Extracting all the alpha/gamma/r2fit values from the MSD curves fit.');
 alphas_MSD = ma.loglogfit.alpha;
-gammas_MSD = ma.loglogfit.gamma;
+%gammas_MSD = ma.loglogfit.gamma;
 r2fits_MSD = ma.loglogfit.r2fit;
 bad_fits = r2fits_MSD < R2LIMIT; % Remove bad fits
 fprintf('Keeping %d fits out of %d (R2 > %.2f).\n', sum(~bad_fits), length(r2fits_MSD), R2LIMIT);
@@ -256,11 +271,13 @@ for track = 1:length(mini_length_tracks_all_values)
     radius_of_gyration2(track,1) = mini_length_tracks_all_values{track}.RadiusOfGyration2(1); % For the Radius of gyration plot
 end
 
+clear htest pval bad_fits
+
 %% Compute velocity autocorrelations
 
 % ma = ma.computeVCorr; % Compute velocity autocorrelation
 
-%% MEGA PLOT
+%% Plotting part 1
 
 figure1 = figure('rend','painters','pos',[800 300 1800 1000]);
 
@@ -345,19 +362,12 @@ rotateXLabels( gca(), 45 )
 ylabel('Count','FontName','Arial')
 title('Modes of motion','FontSize', 16,'FontName','Arial')
 
-suptitle(filename);
+suptitle(filename,'Interpreter','none');
 
-save = [filename '_fig1.eps'];
+save = [filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_fig1.eps'];
 print('-painters','-depsc','-loose',save);
-clear track
-close all
-
-%%
-
-% meanmsd = ma.getMeanMSD; % Compute the weighted mean of all MSD curves. 
-% meanvcorr = ma.getMeanVCorr; % Compute the weighted mean of velocity autocorrelation. 
-% instant_velocities = ma.getVelocities; % Generate and return the instantaneous velocities. 
-% ma = ma.fitMSD; % Fit all MSD curves by a linear function.
+close(figure1)
+clear track save str axes1 label_modes figure1
 
 %% Plotting part 2
 
@@ -431,16 +441,26 @@ if sum(index_directed_MSD) ~= 0 % Required because if the index is empty, plotMS
     xlim(ha10,[0 10]); ylim(ha10,[0 0.1]); title('Mean MSD for tracks \alpha>1.5','FontSize', 16,'FontName','Arial'); box on; axis square
 end
 
-suptitle(filename);
+suptitle(filename,'Interpreter','none');
 
-save = [filename '_fig2.eps'];
+save = [filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_fig2.eps'];
 print('-painters','-depsc','-loose',save);
 
-clear track
-close all
+close(figure2)
+clear track save ha* hps* hmsd figure2
+
+%% Saving the log file and the variables
 
 %% Clean up
 
-clear ha* hps* hmsd fo gof ans
-
+clearvars
 toc
+
+end
+
+%% Backup functions
+
+% meanmsd = ma.getMeanMSD; % Compute the weighted mean of all MSD curves. 
+% meanvcorr = ma.getMeanVCorr; % Compute the weighted mean of velocity autocorrelation. 
+% instant_velocities = ma.getVelocities; % Generate and return the instantaneous velocities. 
+% ma = ma.fitMSD; % Fit all MSD curves by a linear function.
