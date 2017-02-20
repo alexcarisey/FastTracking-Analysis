@@ -10,16 +10,11 @@ function FastTracker(filename,frame_rate,SPACE_UNITS,TIME_UNITS,minimum_track_le
 % column inside the csv file that will be collated into a single
 % spreadsheet with one file per column.
 
-%% Cleanup
+%% Typical values for the user variables
 
-close all
-% clearvars
-home
-
-%% User variables
-
+% filename = 'Repeat 3 - YTS - Position.csv';
 % frame_rate = 0.011; % Time interval betweent the frames in second
-% SPACE_UNITS = 'µm'; % Space unit in which the measurements are imported
+% SPACE_UNITS = 'Âµm'; % Space unit in which the measurements are imported
 % TIME_UNITS = 's'; % Time unit in which the measurements are imported
 % minimum_track_length = 100; % Threshold for including a track in the analysis (this is a frame number, not a duration!)
 % every_n_frame = 1; % To use if you want to change the sampling rate
@@ -27,6 +22,14 @@ home
 % R2LIMIT = 0.75; % Threshold value for what is considered a good fit
 % boundary_alpha_confined = 0.25; % Limit for alpha value between confined and diffusion
 % boundary_alpha_directed = 1.5; % Limit for alpha value between diffusion and directed
+
+%% Cleanup
+
+close all
+home
+
+diary([filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_log.txt']);
+diary on
 
 %% Loading and various parameters
 
@@ -76,6 +79,7 @@ clearvars delimiter startRow formatSpec fileID dataArray ans;
 
 C_single = cell(size(Extracted_data,1),1); % Pre-allocation for speed
 C_multiple = [Extracted_data.OriginalImageName Extracted_data.TrackID];
+diary off
 textprogressbar('Foolproofing the TrackIDs:   ');
 indicator_progress = 0;
 for hh = 1:size(C_multiple,1)
@@ -84,6 +88,7 @@ for hh = 1:size(C_multiple,1)
     textprogressbar(indicator_progress);
 end
 textprogressbar(' Done');
+diary on
 C_single_table = cell2table(C_single,'VariableNames',{'TruelyUniqueName'});
 Extracted_data = [Extracted_data C_single_table];
 clear C_* hh indicator_progress
@@ -95,9 +100,10 @@ Extracted_limited_data = table(Extracted_data.PositionX,Extracted_data.PositionY
 
 %% Separate the main table into cells using their TruelyUniqueName
 
-[TUN, TUN_idx_last, TUN_idx] = unique(Extracted_data(:,16),'stable');
+[TUN, ~, TUN_idx] = unique(Extracted_data(:,16),'stable');
 disp(['Number of tracks: ', mat2str(height(TUN))]);
 unique_idx = accumarray(TUN_idx(:),(1:length(TUN_idx))',[],@(x) {sort(x)});
+diary off
 textprogressbar('Re-constructing the tracks:   ');
 indicator_progress = 0;
 all_the_tracks_all_values = cell(height(TUN),1); % Pre-allocation for speed
@@ -116,6 +122,7 @@ for jj = 1:height(TUN)
     textprogressbar(indicator_progress);
 end
 textprogressbar(' Done');
+diary on
 clear jj indicator_progress unique_idx TUN*
 
 %% Adding a threshold parameter for the minimum number of frames per track and plot the distribution
@@ -123,7 +130,7 @@ clear jj indicator_progress unique_idx TUN*
 disp(['Minimum track duration: ', mat2str(minimum_track_length), ' frames (', mat2str(minimum_track_length*frame_rate),' ',TIME_UNITS,').']);
 index_minimum_length = false(length(all_the_tracks_all_values),1); % Pre-allocation for speed
 track_duration = zeros(length(all_the_tracks_all_values),1); % Pre-allocation for speed
-
+diary off
 textprogressbar('Removing all the short tracks:   ');
 indicator_progress = 0;
 for i=1:length(all_the_tracks_all_values)
@@ -133,7 +140,7 @@ for i=1:length(all_the_tracks_all_values)
     textprogressbar(indicator_progress);
 end
 textprogressbar(' Done');
-
+diary on
 mini_length_tracks_all_values = all_the_tracks_all_values(index_minimum_length);
 mini_length_tracks_time_position = all_the_tracks_time_position(index_minimum_length);
 
@@ -142,7 +149,7 @@ disp(['Longest track is ', mat2str(max(track_duration)),' frames long (', mat2st
 
 clear i indicator_progress index_minimum_length
 
-%% Re-sampling the acquisition frequency
+%% Re-sampling the acquisition frequency (temporary use of skipping_* variables but results back into mini_length_* at the end
 
 skipping_tracks_all_values = cell(length(mini_length_tracks_all_values),1); % Pre-allocation for speed
 skipping_tracks_time_position = cell(length(mini_length_tracks_time_position),1); % Pre-allocation for speed
@@ -155,8 +162,11 @@ clear mini_length_tracks_*
 mini_length_tracks_all_values = skipping_tracks_all_values;
 mini_length_tracks_time_position = skipping_tracks_time_position;
 
+clear skipping_tracks_*
+
 %% Calculating additional parameters using only the X,Y,Z positions and time interval
 
+diary off
 disp('Pre-allocation');
 textprogressbar('Progress:   ');
 indicator_progress = 0;
@@ -177,8 +187,8 @@ for track = 1:length(mini_length_tracks_all_values)
 end
 textprogressbar(' Done');
 clear indicator_progress track nrow
-
 disp('Computing distances, displacement and velocities...');
+diary off
 textprogressbar('Progress:   ');
 indicator_progress = 0;
 for track = 1:length(mini_length_tracks_all_values)
@@ -186,16 +196,17 @@ for track = 1:length(mini_length_tracks_all_values)
         mini_length_tracks_all_values{track}.PTPDistance(position) = sqrt((mini_length_tracks_all_values{track}.PositionX(position)-mini_length_tracks_all_values{track}.PositionX(position-1))^2 + (mini_length_tracks_all_values{track}.PositionY(position)-mini_length_tracks_all_values{track}.PositionY(position-1))^2 + (mini_length_tracks_all_values{track}.PositionZ(position)-mini_length_tracks_all_values{track}.PositionZ(position-1))^2);
         mini_length_tracks_all_values{track}.CumulativeDistance(position) = mini_length_tracks_all_values{track}.PTPDistance(position) + mini_length_tracks_all_values{track}.CumulativeDistance(position-1);
         mini_length_tracks_all_values{track}.Displacement(position) = sqrt((mini_length_tracks_all_values{track}.PositionX(end)-mini_length_tracks_all_values{track}.PositionX(1))^2 + (mini_length_tracks_all_values{track}.PositionY(end)-mini_length_tracks_all_values{track}.PositionY(1))^2 + (mini_length_tracks_all_values{track}.PositionZ(end)-mini_length_tracks_all_values{track}.PositionZ(1))^2);
-        mini_length_tracks_all_values{track}.InstantVelocity(position) = mini_length_tracks_all_values{track}.PTPDistance(position) / frame_rate;
-        mini_length_tracks_all_values{track}.CumulativeSpeed(position) = mini_length_tracks_all_values{track}.CumulativeDistance(position) / (frame_rate * (position-1));
+        mini_length_tracks_all_values{track}.InstantVelocity(position) = mini_length_tracks_all_values{track}.PTPDistance(position) / (frame_rate * every_n_frame);
+        mini_length_tracks_all_values{track}.CumulativeSpeed(position) = mini_length_tracks_all_values{track}.CumulativeDistance(position) / (frame_rate * every_n_frame * (position-1));
     end
     indicator_progress = indicator_progress + (100/length(mini_length_tracks_all_values));
     textprogressbar(indicator_progress);
 end
 textprogressbar(' Done');
 clear indicator_progress track position nrow
-
+diary on
 disp('Computing components for radius of gyration...');
+diary off
 textprogressbar('Progress:   ');
 indicator_progress = 0;
 for track = 1:length(mini_length_tracks_all_values)
@@ -220,12 +231,23 @@ for track = 1:length(mini_length_tracks_all_values)
     textprogressbar(indicator_progress);
 end
 textprogressbar(' Done');
+diary on
 clear indicator_progress track position nrow
 
 %% @msdanalyzer class loading and computing
 
-ma = msdanalyzer(3, 'µm', 's'); % Build a new MSD analyzer object.
+ma = msdanalyzer(3, 'Âµm', 's'); % Build a new MSD analyzer object.
 ma = ma.addAll(mini_length_tracks_time_position); % Load tracks to msdanalyzer.
+
+% Compute drift
+% 
+% ma = ma.computeDrift('velocity');
+% ma.plotDrift
+% ma.labelPlotTracks
+% filesave = [filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_drift.png'];
+% print('-painters','-dpng',filesave);
+% close all
+
 ma = ma.computeMSD; % Compute MSD
 disp(['Fitting of MSD is currently set to be done with a factor of ',mat2str(((max(track_duration)*frame_rate/(1*frame_rate))*value_for_fitLogLogMSD)/every_n_frame),' between smallest delay and the largest one.']);
 if ((((max(track_duration)*frame_rate/(1*frame_rate))*value_for_fitLogLogMSD)/every_n_frame)<=1000)
@@ -243,18 +265,18 @@ r2fits_MSD = ma.loglogfit.r2fit;
 bad_fits = r2fits_MSD < R2LIMIT; % Remove bad fits
 fprintf('Keeping %d fits out of %d (R2 > %.2f).\n', sum(~bad_fits), length(r2fits_MSD), R2LIMIT);
 alphas_MSD(bad_fits) = [];
-[htest, pval] = ttest(alphas_MSD, 1, 0.05, 'left'); % T-test
-if ~htest
-    [htest, pval] = ttest(alphas_MSD, 1, 0.05);
-end
-
-% Prepare string
-str = { [ '\alpha = ' sprintf('%.2f ± %.2f (mean ± std, N = %d)', mean(alphas_MSD), std(alphas_MSD), numel(alphas_MSD)) ] };
-if htest
-    str{2} = sprintf('Significantly below 1, with p = %.2g', pval);
-else
-    str{2} = sprintf('Not significantly differend from 1, with p = %.2g', pval);
-end
+% [htest, pval] = ttest(alphas_MSD, 1, 0.05, 'left'); % T-test
+% if ~htest
+%     [htest, pval] = ttest(alphas_MSD, 1, 0.05);
+% end
+% 
+% % Prepare string
+% str = { [ '\alpha = ' sprintf('%.2f Â± %.2f (mean Â± std, N = %d)', mean(alphas_MSD), std(alphas_MSD), numel(alphas_MSD)) ] };
+% if htest
+%     str{2} = sprintf('Significantly below 1, with p = %.2g', pval);
+% else
+%     str{2} = sprintf('Not significantly different from 1, with p = %.2g', pval);
+% end
 
 % Creating indexes according to the alpha value and the goodness of the fit of the MSD
 index_confined_MSD = ma.loglogfit.alpha < boundary_alpha_confined & ma.loglogfit.r2fit > R2LIMIT; % Confined
@@ -279,7 +301,7 @@ clear htest pval bad_fits
 
 %% Plotting part 1
 
-figure1 = figure('rend','painters','pos',[800 300 1800 1000]);
+figure1 = figure('rend','painters','pos',[800 300 2000 1000]);
 
 subplot(2,7,[1 2])
 hold on
@@ -301,6 +323,7 @@ boxplot(average_speeds);
 hold off
 title('Granule velocity (mean)','FontSize', 16,'FontName','Arial')
 ylabel([SPACE_UNITS,'/',TIME_UNITS],'FontName','Arial')
+ylim([0,0.5]);
 set(gca,'XTickLabel','')
 
 subplot(2,7,4);
@@ -310,20 +333,23 @@ boxplot(radius_of_gyration2);
 hold off
 title('Radius of gyration','FontSize', 16,'FontName','Arial')
 ylabel([SPACE_UNITS,'^2'],'FontName','Arial')
+ylim([0,0.15]);
 set(gca,'XTickLabel','')
 
 subplot(2,7,[5 7])
 hold on
-rectangle('position',[0 0 0.25 0.14],'facecolor',[0.729411780834198 0.831372559070587 0.95686274766922]);
-rectangle('position',[0.25 0 1.25 0.14],'facecolor',[0.756862759590149 0.866666674613953 0.776470601558685]);
-rectangle('position',[1.5 0 0.5 0.14],'facecolor',[0.925490200519562 0.839215695858002 0.839215695858002]);
+rectangle('position',[0 0 0.25 1],'facecolor',[0.729411780834198 0.831372559070587 0.95686274766922]);
+rectangle('position',[0.25 0 1.25 1],'facecolor',[0.756862759590149 0.866666674613953 0.776470601558685]);
+rectangle('position',[1.5 0 0.5 1],'facecolor',[0.925490200519562 0.839215695858002 0.839215695858002]);
 histogram(alphas_MSD,40,'Normalization','probability');
 xlabel('\alpha','FontName','Arial')
 ylabel('Frequency','FontName','Arial')
-text(0.8, 0.06, str, ...
-    'HorizontalAlignment', 'left', ...
-    'VerticalAlignment', 'bottom', ...
-    'FontSize', 14)
+% text(0.6, 0.14, str, ...
+%     'HorizontalAlignment', 'left', ...
+%     'VerticalAlignment', 'bottom', ...
+%     'FontSize', 14)
+xlim([0,2]);
+ylim([0,0.25]);
 title('\alpha values distribution','FontSize', 16,'FontName','Arial')
 hold off
 box on;
@@ -346,12 +372,14 @@ histogram(average_speeds,40,'Normalization','probability')
 title('Distribution of mean granule velocity','FontSize', 16,'FontName','Arial')
 xlabel(['Speed (',SPACE_UNITS,'/',TIME_UNITS,')'],'FontName','Arial');
 ylabel('Frequency','FontName','Arial');
+xlim([0,0.5]);
 
 subplot(2,7,[12 13]);
 histogram(radius_of_gyration2,40,'Normalization','probability')
 title('Distribution of radius of gyration','FontSize', 16,'FontName','Arial')
 xlabel(['Radius of gyration (',SPACE_UNITS,'^2)'],'FontName','Arial');
 ylabel('Frequency','FontName','Arial')
+xlim([0,0.15]);
 
 subplot(2,7,14)
 bar(array_categories_plot,'FaceColor',[0.4 0.67 0.84]);
@@ -362,12 +390,14 @@ rotateXLabels( gca(), 45 )
 ylabel('Count','FontName','Arial')
 title('Modes of motion','FontSize', 16,'FontName','Arial')
 
-suptitle(filename,'Interpreter','none');
+suptitle([filename,' - ',mat2str(frame_rate),' - ',mat2str(every_n_frame),' - ',mat2str(value_for_fitLogLogMSD),' - ',mat2str(R2LIMIT)]);
 
-save = [filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_fig1.eps'];
-print('-painters','-depsc','-loose',save);
+filesave = [filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_fig1.eps'];
+print('-painters','-depsc','-loose',filesave);
+filesave = [filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_fig1.png'];
+print('-painters','-dpng',filesave);
 close(figure1)
-clear track save str axes1 label_modes figure1
+clear track filesave str axes1 label_modes figure1
 
 %% Plotting part 2
 
@@ -376,85 +406,110 @@ clear track save str axes1 label_modes figure1
 figure2 = figure('rend','painters','pos',[800 300 2000 900]);
 
 subplot(2,5,1)
-[hps1, ha1] =  ma.plotMSD; % Plot the mean square displacement curves.
+[~, ha1] =  ma.plotMSD; % Plot the mean square displacement curves.
 ma.labelPlotMSD(ha1); % A convenience method to set the axes labels.
-xlim(ha1,[0 10]); ylim(ha1,[0 0.1]); title('MSD for all tracks','FontSize', 16,'FontName','Arial'); box on; axis square
+xlim(ha1,[0 10]); ylim(ha1,[0.0001 1]);
+set(gca,'YMinorTick','on','XScale','log','YScale','log');
+title('MSD for all tracks','FontSize', 16,'FontName','Arial'); box on; axis square
 
 if sum(index_bad_fits) ~= 0 % Required because if the index is empty, plotMSD plot ALL the MSD values by default!
     subplot(2,5,2)
-    [hps2, ha2] =  ma.plotMSD(gca,find(index_bad_fits)); % Plot the mean square displacement curves.
+    [~, ha2] =  ma.plotMSD(gca,find(index_bad_fits)); % Plot the mean square displacement curves.
     ma.labelPlotMSD(ha2); % A convenience method to set the axes labels.
-    xlim(ha2,[0 10]); ylim(ha2,[0 0.1]); title(['MSD for tracks with r2<',mat2str(R2LIMIT)],'FontSize', 16,'FontName','Arial'); box on; axis square
+    xlim(ha2,[0 10]); ylim(ha2,[0.0001 1]);
+    set(gca,'YMinorTick','on','XScale','log','YScale','log');
+    title(['MSD for tracks with r2<',mat2str(R2LIMIT)],'FontSize', 16,'FontName','Arial'); box on; axis square
 end
 
 if sum(index_confined_MSD) ~= 0 % Required because if the index is empty, plotMSD plot ALL the MSD values by default!
     subplot(2,5,3)
-    [hps3, ha3] =  ma.plotMSD(gca,find(index_confined_MSD)); % Plot the mean square displacement curves.
+    [~, ha3] =  ma.plotMSD(gca,find(index_confined_MSD)); % Plot the mean square displacement curves.
     ma.labelPlotMSD(ha3); % A convenience method to set the axes labels.
-    xlim(ha3,[0 10]); ylim(ha3,[0 0.1]); title('MSD for tracks \alpha<0.25','FontSize', 16,'FontName','Arial'); box on; axis square
+    xlim(ha3,[0 10]); ylim(ha3,[0.0001 1]);
+    set(gca,'YMinorTick','on','XScale','log','YScale','log');
+    title('MSD for tracks \alpha<0.25','FontSize', 16,'FontName','Arial'); box on; axis square
 end
 
 if sum(index_diffusive_MSD) ~= 0 % Required because if the index is empty, plotMSD plot ALL the MSD values by default!
     subplot(2,5,4)
-    [hps4, ha4] =  ma.plotMSD(gca,find(index_diffusive_MSD)); % Plot the mean square displacement curves.
+    [~, ha4] =  ma.plotMSD(gca,find(index_diffusive_MSD)); % Plot the mean square displacement curves.
     ma.labelPlotMSD(ha4); % A convenience method to set the axes labels.
-    xlim(ha4,[0 10]); ylim(ha4,[0 0.1]); title('MSD for tracks 0.25<\alpha<1.5','FontSize', 16,'FontName','Arial'); box on; axis square
+    xlim(ha4,[0 10]); ylim(ha4,[0.0001 1]);
+    set(gca,'YMinorTick','on','XScale','log','YScale','log');
+    title('MSD for tracks 0.25<\alpha<1.5','FontSize', 16,'FontName','Arial'); box on; axis square
 end
 
 if sum(index_directed_MSD) ~= 0 % Required because if the index is empty, plotMSD plot ALL the MSD values by default!
     subplot(2,5,5)
-    [hps5, ha5] =  ma.plotMSD(gca,find(index_directed_MSD)); % Plot the mean square displacement curves.
+    [~, ha5] =  ma.plotMSD(gca,find(index_directed_MSD)); % Plot the mean square displacement curves.
     ma.labelPlotMSD(ha5); % A convenience method to set the axes labels.
-    xlim(ha5,[0 10]); ylim(ha5,[0 0.1]); title('MSD for tracks \alpha>1.5','FontSize', 16,'FontName','Arial'); box on; axis square
+    xlim(ha5,[0 10]); ylim(ha5,[0.0001 1]);
+    set(gca,'YMinorTick','on','XScale','log','YScale','log');
+    title('MSD for tracks \alpha>1.5','FontSize', 16,'FontName','Arial'); box on; axis square
 end
 
 subplot(2,5,6)
-[hps6, ha6] =  ma.plotMeanMSD(gca,true); % Plot the MEAN mean square displacement curves.
+[~, ha6] =  ma.plotMeanMSD(gca,true); % Plot the MEAN mean square displacement curves.
 ma.labelPlotMSD(ha6); % A convenience method to set the axes labels.
-xlim(ha6,[0 10]); ylim(ha6,[0 0.1]); title('Mean MSD for all tracks','FontSize', 16,'FontName','Arial'); box on; axis square
+xlim(ha6,[0 10]); ylim(ha6,[0.0001 1]);
+    set(gca,'YMinorTick','on','XScale','log','YScale','log');
+title('Mean MSD for all tracks','FontSize', 16,'FontName','Arial'); box on; axis square
 
 if sum(index_bad_fits) ~= 0 % Required because if the index is empty, plotMSD plot ALL the MSD values by default!
     subplot(2,5,7)
-    [hps7, ha7] =  ma.plotMeanMSD(gca,true,find(index_bad_fits)); % Plot the mean square displacement curves.
+    [~, ha7] =  ma.plotMeanMSD(gca,true,find(index_bad_fits)); % Plot the mean square displacement curves.
     ma.labelPlotMSD(ha7); % A convenience method to set the axes labels.
-    xlim(ha7,[0 10]); ylim(ha7,[0 0.1]); title(['MSD for tracks with r2<',mat2str(R2LIMIT)],'FontSize', 16,'FontName','Arial'); box on; axis square
+    xlim(ha7,[0 10]); ylim(ha7,[0.0001 1]);
+    set(gca,'YMinorTick','on','XScale','log','YScale','log');
+    title(['MSD for tracks with r2<',mat2str(R2LIMIT)],'FontSize', 16,'FontName','Arial'); box on; axis square
 end
 
 if sum(index_confined_MSD) ~= 0 % Required because if the index is empty, plotMSD plot ALL the MSD values by default!
     subplot(2,5,8)
-    [hps8, ha8] =  ma.plotMeanMSD(gca,true,find(index_confined_MSD)); % Plot the MEAN mean square displacement curves.
+    [~, ha8] =  ma.plotMeanMSD(gca,true,find(index_confined_MSD)); % Plot the MEAN mean square displacement curves.
     ma.labelPlotMSD(ha8); % A convenience method to set the axes labels.
-    xlim(ha8,[0 10]); ylim(ha8,[0 0.1]); title('Mean MSD for tracks \alpha<0.25','FontSize', 16,'FontName','Arial'); box on; axis square
+    xlim(ha8,[0 10]); ylim(ha8,[0.0001 1]);
+    set(gca,'YMinorTick','on','XScale','log','YScale','log');
+    title('Mean MSD for tracks \alpha<0.25','FontSize', 16,'FontName','Arial'); box on; axis square
 end
 
 if sum(index_diffusive_MSD) ~= 0 % Required because if the index is empty, plotMSD plot ALL the MSD values by default!
     subplot(2,5,9)
-    [hps9, ha9] =  ma.plotMeanMSD(gca,true,find(index_diffusive_MSD)); % Plot the MEAN mean square displacement curves.
+    [~, ha9] =  ma.plotMeanMSD(gca,true,find(index_diffusive_MSD)); % Plot the MEAN mean square displacement curves.
     ma.labelPlotMSD(ha9); % A convenience method to set the axes labels.
-    xlim(ha9,[0 10]); ylim(ha9,[0 0.1]); title('Mean MSD for tracks 0.25<\alpha<1.5','FontSize', 16,'FontName','Arial'); box on; axis square
+    xlim(ha9,[0 10]); ylim(ha9,[0.0001 1]);
+    set(gca,'YMinorTick','on','XScale','log','YScale','log');
+    title('Mean MSD for tracks 0.25<\alpha<1.5','FontSize', 16,'FontName','Arial'); box on; axis square
 end
 
 if sum(index_directed_MSD) ~= 0 % Required because if the index is empty, plotMSD plot ALL the MSD values by default!
     subplot(2,5,10)
-    [hps10, ha10] =  ma.plotMeanMSD(gca,true,find(index_directed_MSD)); % Plot the MEAN mean square displacement curves.
+    [~, ha10] =  ma.plotMeanMSD(gca,true,find(index_directed_MSD)); % Plot the MEAN mean square displacement curves.
     ma.labelPlotMSD(ha10); % A convenience method to set the axes labels.
-    xlim(ha10,[0 10]); ylim(ha10,[0 0.1]); title('Mean MSD for tracks \alpha>1.5','FontSize', 16,'FontName','Arial'); box on; axis square
+    xlim(ha10,[0 10]); ylim(ha10,[0.0001 1]);
+    set(gca,'YMinorTick','on','XScale','log','YScale','log');
+    title('Mean MSD for tracks \alpha>1.5','FontSize', 16,'FontName','Arial'); box on; axis square
 end
 
-suptitle(filename,'Interpreter','none');
+suptitle([filename,' - ',mat2str(frame_rate),' - ',mat2str(every_n_frame),' - ',mat2str(value_for_fitLogLogMSD),' - ',mat2str(R2LIMIT)]);
 
-save = [filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_fig2.eps'];
-print('-painters','-depsc','-loose',save);
+filesave = [filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_fig2.eps'];
+print('-painters','-depsc','-loose',filesave);
+filesave = [filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_fig2.png'];
+print('-painters','-dpng',filesave);
 
 close(figure2)
-clear track save ha* hps* hmsd figure2
+clear track filesave ha* hmsd figure2 Extracted_*
 
 %% Saving the log file and the variables
+
+save([filename,'_',mat2str(frame_rate),'_',mat2str(every_n_frame),'_',mat2str(value_for_fitLogLogMSD),'_',mat2str(R2LIMIT),'_variables.mat']);
 
 %% Clean up
 
 clearvars
 toc
+diary off
 
 end
 
