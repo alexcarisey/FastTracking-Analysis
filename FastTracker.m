@@ -42,7 +42,7 @@ diary on
 tic
 
 disp(' ');
-disp('FastTracker - v1.0 - 2017-02-02');
+disp('FastTracker - v1.1 - 2017-02-23');
 disp(' ');
 disp('Parameters for this analysis:');
 disp(['   Unit for space: ',SPACE_UNITS]);
@@ -60,7 +60,7 @@ disp('Loading source csv file');
 % [filename, path, ~] = uigetfile('.csv');
 path = [pwd,'/'];
 delimiter = ',';
-startRow = 4; % note that sometimes, Imaris adds a padding line on the top!? So start at 5 if textscan encounters an error
+startRow = 5; % note that sometimes, Imaris adds a padding line on the top!? So start at 5 if textscan encounters an error
 formatSpec = '%f%f%f%s%s%s%f%f%s%s%s%s%s%s%s%[^\n\r]'; % Important: 'PositionX','PositionY','PositionZ','Birth','Death' are imported as a number, rest as strings
 fileID = fopen([path filename],'r');
 dataArray = textscan(fileID, formatSpec, 'Delimiter', delimiter, 'EmptyValue' ,NaN,'HeaderLines' ,startRow-1, 'ReturnOnError', false);
