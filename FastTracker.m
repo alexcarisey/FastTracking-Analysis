@@ -60,15 +60,39 @@ disp('Loading source csv file');
 % [filename, path, ~] = uigetfile('.csv');
 path = [pwd,'/'];
 delimiter = ',';
-startRow = 5; % note that sometimes, Imaris adds a padding line on the top!? So start at 5 if textscan encounters an error
-formatSpec = '%f%f%f%s%s%s%f%f%s%s%s%s%s%s%s%[^\n\r]'; % Important: 'PositionX','PositionY','PositionZ','Birth','Death' are imported as a number, rest as strings
+
+% Load file as raw text
+raw_data = fileread([path filename]);
+raw_data_split = regexp(raw_data, '\n', 'split');
+
+%detect start line
+startRow = 2 + find(~cellfun('isempty', regexp(raw_data_split,'====')));
+disp(sprintf('Detected row %d as start of data...', startRow));
+
+%extract header line
+header_line = regexp(raw_data_split{startRow-1}, delimiter, 'split');
+header_line = replace(header_line, {' ', '[', ']'}, '');
+header_line = header_line(cellfun('isempty', regexp(header_line,'[\n\r]'))); %remove empty cells
+
+%construct formatSpec for textscan()
+formatSpec = '';
+for i=1:length(header_line)
+    if regexp(header_line{i}, 'Position|Birth|Death')
+        formatSpec = [formatSpec '%f'];
+    else
+        formatSpec = [formatSpec '%s'];
+    end
+end
+formatSpec = [formatSpec '%[^\n\r]'];
+% formatSpec = '%f%f%f%s%s%s%f%f%s%s%s%s%s%s%s%[^\n\r]'; % Important: 'PositionX','PositionY','PositionZ','Birth','Death' are imported as a number, rest as strings
+
 fileID = fopen([path filename],'r');
 dataArray = textscan(fileID, formatSpec, 'Delimiter', delimiter, 'EmptyValue' ,NaN,'HeaderLines' ,startRow-1, 'ReturnOnError', false);
 fclose(fileID);
-Extracted_data = table(dataArray{1:end-1}, 'VariableNames', {'PositionX','PositionY','PositionZ','Unit','Category','Collection','Birth','Death','TrackID','ID','OriginalID','OriginalComponentName','OriginalComponentID','OriginalImageName','OriginalImageID'});
+Extracted_data = table(dataArray{1:length(header_line)}, 'VariableNames', header_line);
 disp(['File: ', filename]);
 disp(['Total number of points: ', mat2str(height(Extracted_data))]);
-clearvars delimiter startRow formatSpec fileID dataArray ans;
+clearvars delimiter startRow formatSpec fileID dataArray ans raw_data*;
 
 [~,filename,~] = fileparts(filename);
 
